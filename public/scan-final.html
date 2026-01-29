@@ -5,6 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>核销工具 - 最终版</title>
     <style>
+        /* === 扫码枪模式样式 === */
+.mode-switcher {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.mode-btn {
+    padding: 14px 28px;
+    background: #f0f9ff;
+    border: 2px solid #bae7ff;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #1890ff;
+    transition: all 0.3s;
+}
+
+.mode-btn.active {
+    background: #1890ff;
+    color: white;
+    border-color: #1890ff;
+    box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+}
+
+.mode-btn:hover {
+    transform: translateY(-2px);
+}
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, system-ui, sans-serif;
@@ -305,7 +335,29 @@
         </div>
     </div>
 </div>
+<!-- 模式切换按钮 -->
+<div class="mode-switcher" style="margin: 20px 0; text-align: center;">
+    <button id="switch-to-camera" class="mode-btn active">📷 摄像头模式</button>
+    <button id="switch-to-scanner" class="mode-btn">🔫 扫码枪模式</button>
+</div>
 
+<!-- 扫码枪输入区域 (默认隐藏) -->
+<div id="scanner-mode" style="display:none; margin: 30px 0;">
+    <div style="text-align: center; margin-bottom: 15px;">
+        <div style="font-size: 1.2em; margin-bottom: 10px; color: #666;">
+            🔫 请使用扫码枪扫描二维码
+        </div>
+        <input type="text" 
+               id="scanner-input" 
+               placeholder="点击此处，然后用扫码枪扫描二维码"
+               style="width: 100%; padding: 20px; font-size: 1.3em; text-align: center; 
+                      border: 3px solid #1890ff; border-radius: 10px; letter-spacing: 2px;"
+               autocomplete="off">
+        <p style="color: #999; font-size: 0.9em; margin-top: 10px;">
+            💡 提示：扫码枪会自动聚焦并提交
+        </p>
+    </div>
+</div>
 <!-- 模式切换按钮 - 添加到页面顶部或摄像头按钮旁边 -->
 <div class="mode-switcher" style="margin: 20px 0; text-align: center;">
     <button id="switch-to-camera" class="mode-btn active">📷 摄像头模式</button>
@@ -585,7 +637,76 @@
             
             // 初始状态更新
             updateResult('欢迎使用礼盒券核销系统！请先开启摄像头或输入核销码', 'info');
+                        // ==================== 7. 扫码枪模式功能 ====================
+            // 模式切换
+            document.getElementById('switch-to-camera').addEventListener('click', switchToCameraMode);
+            document.getElementById('switch-to-scanner').addEventListener('click', switchToScannerMode);
             
+            // 扫码枪输入框元素
+            const scannerInput = document.getElementById('scanner-input');
+            
+            function switchToCameraMode() {
+                // 更新按钮状态
+                document.getElementById('switch-to-camera').classList.add('active');
+                document.getElementById('switch-to-scanner').classList.remove('active');
+                // 显示摄像头区域
+                document.querySelector('.scanner-area').style.display = 'block';
+                document.querySelector('.manual-input').style.display = 'block';
+                // 隐藏扫码枪区域
+                document.getElementById('scanner-mode').style.display = 'none';
+                // 确保手动输入框被聚焦（方便备用）
+                manualCodeInput.focus();
+                updateResult('已切换至摄像头模式', 'info');
+            }
+            
+            function switchToScannerMode() {
+                // 更新按钮状态
+                document.getElementById('switch-to-scanner').classList.add('active');
+                document.getElementById('switch-to-camera').classList.remove('active');
+                // 隐藏摄像头和手动输入区域
+                document.querySelector('.scanner-area').style.display = 'none';
+                document.querySelector('.manual-input').style.display = 'none';
+                // 显示并聚焦扫码枪输入框
+                document.getElementById('scanner-mode').style.display = 'block';
+                scannerInput.value = '';
+                scannerInput.focus();
+                updateResult('扫码枪模式已就绪，请扫描二维码', 'info');
+                // 如果摄像头开着，先关掉以释放资源
+                if (isScanning) {
+                    stopCamera();
+                }
+            }
+            
+            // 核心：监听扫码枪输入（自动提交）
+            let scannerTimer;
+            scannerInput.addEventListener('input', function() {
+                const code = this.value.trim();
+                clearTimeout(scannerTimer); // 清除旧的计时器
+                
+                // 设置一个新的计时器，100毫秒后如果无新输入，则认为输入完成
+                scannerTimer = setTimeout(() => {
+                    if (code.length >= 10) { // 假设有效码长度至少10位
+                        console.log('扫码枪输入完成:', code);
+                        // 调用你现有的验证函数！
+                        verifyCoupon(code); // 这是你页面里已有的核心验证函数
+                        this.value = ''; // 验证后清空输入框
+                        this.focus(); // 重新聚焦，准备下一次扫描
+                    }
+                }, 100);
+            });
+            
+            // 扫码枪模式下，按回车也可提交（部分扫码枪会发送回车键）
+            scannerInput.addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    const code = this.value.trim();
+                    if (code) {
+                        verifyCoupon(code);
+                        this.value = '';
+                    }
+                }
+            });
+            // ==================== 扫码枪功能结束 ====================
             console.log('核销工具初始化完成');
         });
     </script>
