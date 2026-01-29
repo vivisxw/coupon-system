@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>领取新年礼盒券</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        body { font-family: sans-serif; max-width: 500px; margin: 40px auto; padding: 20px; }
+        input, button { padding: 12px; margin: 8px 0; width: 100%; font-size: 16px; }
+        #qrcode { margin: 25px auto; text-align: center; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .result { margin: 20px 0; padding: 15px; border-radius: 8px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .code-box { font-family: monospace; font-size: 20px; padding: 15px; margin: 15px 0; background: #f8f9fa; border-radius: 6px; letter-spacing: 2px; }
+        .instructions { background: #e6f7ff; padding: 15px; border-radius: 8px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h2>🎁 领取新年礼盒券</h2>
+    
+    <div class="instructions">
+        <p><strong>领取说明：</strong></p>
+        <p>1. 填写工号和姓名生成专属核销码</p>
+        <p>2. 保存二维码，领取时出示给核销员</p>
+        <p>3. 核销员会用专业设备扫码完成核销</p>
+    </div>
+    
+    <input type="text" id="employeeId" placeholder="请输入工号" required>
+    <input type="text" id="employeeName" placeholder="请输入姓名" required>
+    <button onclick="createCoupon()">生成领取二维码</button>
+    
+    <div id="qrcode"></div>
+    <div id="result"></div>
+    
+    <script>
+        async function createCoupon() {
+            const employeeId = document.getElementById('employeeId').value.trim();
+            const employeeName = document.getElementById('employeeName').value.trim();
+            
+            document.getElementById('qrcode').innerHTML = '';
+            document.getElementById('result').innerHTML = '';
+            
+            if (!employeeId || !employeeName) {
+                showMessage('请填写完整的工号和姓名', 'error');
+                return;
+            }
+            
+            try {
+                showMessage('正在生成...', 'success');
+                
+                const response = await fetch('/api/create-coupon', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ employeeId, employeeName })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // ✅ 关键修改：二维码内容改为纯12位核销码
+                    const qrContent = result.couponId; // 只用核销码，不用URL
+                    
+                    // 生成二维码
+                    QRCode.toCanvas(document.getElementById('qrcode'), qrContent, {
+                        width: 250,
+                        height: 250,
+                        margin: 1,
+                        colorDark: "#000000",
+                        colorLight: "#FFFFFF"
+                    }, function(error) {
+                        if (error) {
+                            showMessage('二维码生成失败: ' + error, 'error');
+                        } else {
+                            // 显示成功信息
+                            const resultHTML = `
+                                <div class="result success">
+                                    <h3>✅ 领取成功！</h3>
+                                    <p><strong>员工信息：</strong>${employeeName} (${employeeId})</p>
+                                    <div class="code-box">核销码：${result.couponId}</div>
+                                    <p><strong>使用说明：</strong></p>
+                                    <p>1. 请截图保存上方二维码</p>
+                                    <p>2. 领取礼盒时出示此二维码</p>
+                                    <p>3. 核销员会扫描此二维码完成核销</p>
+                                    <p style="color: #666; font-size: 14px; margin-top: 15px;">
+                                        提示：此二维码只能使用一次，核销后失效
+                                    </p>
+                                </div>
+                            `;
+                            document.getElementById('result').innerHTML = resultHTML;
+                        }
+                    });
+                } else {
+                    showMessage('生成失败: ' + (result.error || '未知错误'), 'error');
+                }
+            } catch (error) {
+                showMessage('网络错误: ' + error.message, 'error');
+            }
+        }
+        
+        function showMessage(text, type) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `result ${type}`;
+            msgDiv.innerHTML = text;
+            document.getElementById('result').appendChild(msgDiv);
+        }
+        
+        // 按回车提交
+        document.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') createCoupon();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>领取新年礼盒券</title>
+    <!-- 使用稳定可靠的二维码库 -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { font-family: sans-serif; max-width: 500px; margin: 40px auto; padding: 20px; }
+        input, button { width: 100%; padding: 12px; margin: 8px 0; font-size: 16px; }
+        #qrcode { margin: 20px auto; text-align: center; min-height: 256px; }
+        .result { padding: 15px; margin: 15px 0; border-radius: 8px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .code { font-family: monospace; background: white; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h2>领取新年礼盒券</h2>
+    
+    <input type="text" id="employeeId" placeholder="工号" value="1001">
+    <input type="text" id="employeeName" placeholder="姓名" value="张三">
+    <button onclick="generate()">生成二维码</button>
+    
+    <div id="qrcode"></div>
+    <div id="result"></div>
+    
+    <script>
+        // 检查库是否加载成功
+        if (typeof QRCode === 'undefined') {
+            document.getElementById('result').innerHTML = 
+                '<div class="error">错误：二维码库加载失败，请刷新页面</div>';
+        }
+        
+        async function generate() {
+            const id = document.getElementById('employeeId').value;
+            const name = document.getElementById('employeeName').value;
+            
+            if (!id || !name) {
+                alert('请填写完整信息');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/create-coupon', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({employeeId: id, employeeName: name})
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // ✅ 关键：二维码内容使用纯12位核销码
+                    const couponId = data.couponId; // 例如: "abc123def456"
+                    
+                    // 清空之前的二维码
+                    document.getElementById('qrcode').innerHTML = '';
+                    
+                    // 生成真正的二维码
+                    new QRCode(document.getElementById("qrcode"), {
+                        text: couponId,  // 只用12位核销码，不用URL
+                        width: 256,
+                        height: 256,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                    
+                    document.getElementById('result').innerHTML = `
+                        <div class="success">
+                            <h3>✅ 领取成功！</h3>
+                            <p>员工：${name} (${id})</p>
+                            <div class="code">核销码：${couponId}</div>
+                            <p><small>请截图保存二维码，领取时出示</small></p>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('result').innerHTML = 
+                        `<div class="error">生成失败：${data.error}</div>`;
+                }
+            } catch(e) {
+                document.getElementById('result').innerHTML = 
+                    `<div class="error">网络错误：${e.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

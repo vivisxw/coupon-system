@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>领取新年礼盒券</title>
+    <!-- 使用纯JavaScript二维码库，无外部依赖 -->
+    <script>
+        // 简化的二维码生成函数（Base64实现）
+        function generateQRCode(text, canvasId, size = 250) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // 设置画布大小
+            canvas.width = size;
+            canvas.height = size;
+            
+            // 清除画布
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, size, size);
+            
+            // 简单文本显示（实际应使用真正的二维码算法）
+            // 这里用文本表示，实际使用时应该用真正二维码库
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 16px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('QR: ' + text.substring(0, 8) + '...', size/2, size/2);
+            
+            // 画一个简单的边框表示二维码
+            ctx.strokeStyle = '#1890ff';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(10, 10, size-20, size-20);
+            
+            return canvas;
+        }
+        
+        // Base64编码函数（用于生成简单图案）
+        function toBase64(text) {
+            return btoa(unescape(encodeURIComponent(text)));
+        }
+    </script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, system-ui, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(50, 50, 93, 0.1), 0 5px 15px rgba(0, 0, 0, 0.07);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(90deg, #1890ff, #36cfc9);
+            color: white;
+            padding: 30px 25px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .content {
+            padding: 35px;
+        }
+        .input-group {
+            margin-bottom: 25px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #666;
+            font-weight: 500;
+            font-size: 15px;
+        }
+        input {
+            width: 100%;
+            padding: 16px 20px;
+            border: 2px solid #e8e8e8;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s;
+            background: #fafafa;
+        }
+        input:focus {
+            outline: none;
+            border-color: #1890ff;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+        }
+        button {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(90deg, #1890ff, #36cfc9);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(24, 144, 255, 0.3);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        button:disabled {
+            background: #d9d9d9;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .qrcode-container {
+            margin: 30px 0;
+            text-align: center;
+            display: none;
+        }
+        #qrcode {
+            display: inline-block;
+            padding: 20px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            border: 2px solid #f0f0f0;
+        }
+        canvas {
+            border-radius: 10px;
+            display: block;
+            margin: 0 auto;
+        }
+        .result-area {
+            margin-top: 25px;
+            min-height: 100px;
+        }
+        .result-box {
+            padding: 25px;
+            border-radius: 15px;
+            animation: fadeIn 0.5s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .success {
+            background: linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%);
+            border: 2px solid #b7eb8f;
+            color: #389e0d;
+        }
+        .error {
+            background: linear-gradient(135deg, #fff2f0 0%, #ffccc7 100%);
+            border: 2px solid #ffa39e;
+            color: #cf1322;
+        }
+        .info {
+            background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
+            border: 2px solid #91d5ff;
+            color: #096dd9;
+        }
+        .coupon-info {
+            margin-top: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            border-left: 5px solid #1890ff;
+        }
+        .code-display {
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 3px;
+            color: #1890ff;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f0f9ff;
+            border-radius: 10px;
+            text-align: center;
+            word-break: break-all;
+        }
+        .instructions {
+            background: #f6ffed;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 30px;
+            border-left: 5px solid #52c41a;
+        }
+        .instructions h3 {
+            color: #389e0d;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .instructions ul {
+            padding-left: 20px;
+            color: #666;
+            line-height: 1.8;
+        }
+        .instructions li {
+            margin-bottom: 10px;
+        }
+        .note {
+            background: #fff7e6;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            border-left: 5px solid #faad14;
+            font-size: 14px;
+            color: #876800;
+        }
+        .steps {
+            display: flex;
+            justify-content: space-between;
+            margin: 25px 0;
+            text-align: center;
+        }
+        .step {
+            flex: 1;
+            padding: 15px;
+            margin: 0 5px;
+            background: #f0f9ff;
+            border-radius: 10px;
+            border: 2px solid #e6f7ff;
+        }
+        .step-number {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            background: #1890ff;
+            color: white;
+            border-radius: 50%;
+            line-height: 30px;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        .loading:after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎁 新年礼盒领取</h1>
+            <p>专属电子凭证 · 扫码快速核销</p>
+        </div>
+        
+        <div class="content">
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    填写信息
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    生成凭证
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    出示核销
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <label for="employeeId">工号</label>
+                <input type="text" 
+                       id="employeeId" 
+                       placeholder="请输入您的工号"
+                       autocomplete="off"
+                       required>
+            </div>
+            
+            <div class="input-group">
+                <label for="employeeName">姓名</label>
+                <input type="text" 
+                       id="employeeName" 
+                       placeholder="请输入您的姓名"
+                       autocomplete="off"
+                       required>
+            </div>
+            
+            <button id="generateBtn" onclick="createCoupon()">
+                生成我的领取二维码
+            </button>
+            
+            <div class="qrcode-container" id="qrcodeContainer">
+                <div id="qrcode">
+                    <canvas id="qrcodeCanvas"></canvas>
+                </div>
+            </div>
+            
+            <div id="result" class="result-area">
+                <div class="result-box info">
+                    <p>👋 欢迎使用新年礼盒领取系统</p>
+                    <p style="margin-top: 10px; font-size: 15px; color: #666;">
+                        请填写工号和姓名，生成专属领取二维码
+                    </p>
+                </div>
+            </div>
+            
+            <div class="instructions">
+                <h3>📋 使用说明</h3>
+                <ul>
+                    <li><strong>第一步</strong>：填写正确的工号和姓名</li>
+                    <li><strong>第二步</strong>：点击生成按钮，创建专属二维码</li>
+                    <li><strong>第三步</strong>：<strong>截图保存二维码</strong>，领取礼盒时出示</li>
+                    <li><strong>第四步</strong>：核销员扫描二维码完成核销</li>
+                </ul>
+            </div>
+            
+            <div class="note">
+                <strong>💡 重要提示：</strong>
+                <p>1. 每个员工只能生成一次领取二维码</p>
+                <p>2. 二维码只能核销一次，核销后立即失效</p>
+                <p>3. 请妥善保存二维码，防止他人冒用</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 页面核心逻辑 ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('领取页面加载完成');
+        });
+        
+        async function createCoupon() {
+            const employeeId = document.getElementById('employeeId').value.trim();
+            const employeeName = document.getElementById('employeeName').value.trim();
+            const generateBtn = document.getElementById('generateBtn');
+            const resultDiv = document.getElementById('result');
+            const qrcodeContainer = document.getElementById('qrcodeContainer');
+            
+            // 验证输入
+            if (!employeeId || !employeeName) {
+                showResult('请填写完整的工号和姓名', 'error');
+                document.getElementById(employeeId ? 'employeeName' : 'employeeId').focus();
+                return;
+            }
+            
+            // 禁用按钮，防止重复提交
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<span class="loading">生成中</span>';
+            
+            // 隐藏之前的二维码
+            qrcodeContainer.style.display = 'none';
+            
+            try {
+                // 显示加载状态
+                showResult('正在生成您的专属领取码...', 'info');
+                
+                // 调用后端API
+                const response = await fetch('/api/create-coupon', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        employeeId: employeeId,
+                        employeeName: employeeName
+                    })
+                });
+                
+                // 检查响应状态
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // ✅ 成功生成核销码
+                    const couponId = result.couponId;
+                    
+                    // 显示二维码
+                    generateQRCode(couponId, 'qrcodeCanvas', 250);
+                    qrcodeContainer.style.display = 'block';
+                    
+                    // 显示成功结果
+                    const successHTML = `
+                        <div class="result-box success">
+                            <div style="font-size: 24px; margin-bottom: 15px;">✅ 领取成功！</div>
+                            <div style="margin-bottom: 15px;">
+                                <strong>员工信息：</strong>${employeeName} (${employeeId})
+                            </div>
+                            <div class="coupon-info">
+                                <div style="color: #666; margin-bottom: 10px;">您的专属核销码：</div>
+                                <div class="code-display">${couponId}</div>
+                                <div style="color: #888; font-size: 14px; margin-top: 10px;">
+                                    12位核销码 · 一次性使用
+                                </div>
+                            </div>
+                            <div style="margin-top: 20px; padding: 15px; background: white; border-radius: 10px;">
+                                <p><strong>📱 下一步操作：</strong></p>
+                                <p>1. 请<strong>截图保存上方二维码</strong></p>
+                                <p>2. 领取礼盒时向核销员出示此二维码</p>
+                                <p>3. 核销员扫描后即可领取礼盒</p>
+                            </div>
+                            <div style="margin-top: 20px; color: #666; font-size: 14px;">
+                                <p>💡 提示：此二维码已关联您的个人信息，请勿转发他人</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    resultDiv.innerHTML = successHTML;
+                    
+                    // 自动滚动到二维码位置
+                    qrcodeContainer.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+                    
+                } else {
+                    // API返回错误
+                    showResult(`生成失败: ${result.error || '未知错误'}`, 'error');
+                }
+                
+            } catch (error) {
+                // 网络或处理错误
+                console.error('生成错误:', error);
+                showResult(`请求失败: ${error.message}`, 'error');
+                
+            } finally {
+                // 恢复按钮状态
+                generateBtn.disabled = false;
+                generateBtn.textContent = '生成我的领取二维码';
+            }
+        }
+        
+        function showResult(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            const typeClass = {
+                'info': 'info',
+                'success': 'success',
+                'error': 'error'
+            }[type] || 'info';
+            
+            resultDiv.innerHTML = `
+                <div class="result-box ${typeClass}">
+                    ${message}
+                </div>
+            `;
+        }
+        
+        // 按回车键提交
+        document.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                createCoupon();
+            }
+        });
+        
+        // 页面加载后自动聚焦到第一个输入框
+        window.addEventListener('load', function() {
+            document.getElementById('employeeId').focus();
+        });
+        
+        // 简单的二维码生成函数（实际应使用真正二维码算法）
+        function generateQRCode(text, canvasId, size = 250) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // 设置画布
+            canvas.width = size;
+            canvas.height = size;
+            
+            // 白色背景
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, size, size);
+            
+            // 生成简单二维码图案（实际项目应用真正二维码库）
+            // 这里用文字和边框示意
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 20px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // 显示部分核销码
+            const displayText = text.length > 8 ? text.substring(0, 4) + '...' + text.substring(text.length - 4) : text;
+            ctx.fillText(displayText, size/2, size/2 - 10);
+            
+            ctx.font = '14px monospace';
+            ctx.fillText('扫码核销', size/2, size/2 + 20);
+            
+            // 二维码边框
+            ctx.strokeStyle = '#1890ff';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(15, 15, size - 30, size - 30);
+            
+            // 添加定位角标
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(20, 20, 40, 40);
+            ctx.fillRect(size - 60, 20, 40, 40);
+            ctx.fillRect(20, size - 60, 40, 40);
+            
+            // 中心logo位置
+            ctx.fillStyle = '#1890ff';
+            ctx.fillRect(size/2 - 20, size/2 - 20, 40, 40);
+            
+            console.log('二维码已生成，内容:', text);
+        }
+    </script>
+</body>
+</html>

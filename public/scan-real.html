@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>核销工具 - 专业版</title>
+    <!-- 使用轻量级二维码扫描库 -->
+    <script src="https://unpkg.com/jsQR@1.4.0/dist/jsQR.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, sans-serif;
+            background: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            overflow: hidden;
+            padding: 25px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        h1 {
+            color: #1890ff;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+        }
+        .scanner-area {
+            position: relative;
+            width: 100%;
+            max-width: 300px;
+            height: 300px;
+            margin: 0 auto 25px;
+            border: 3px solid #1890ff;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+        }
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        #canvas {
+            display: none; /* 隐藏，仅用于图像处理 */
+        }
+        .scan-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .scan-frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            border: 2px solid #52c41a;
+            box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.5);
+        }
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #52c41a, transparent);
+            animation: scan 2s linear infinite;
+        }
+        @keyframes scan {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        button {
+            flex: 1;
+            padding: 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        #startBtn {
+            background: linear-gradient(90deg, #1890ff, #36cfc9);
+            color: white;
+        }
+        #stopBtn {
+            background: #f0f0f0;
+            color: #666;
+        }
+        #startBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(24, 144, 255, 0.4);
+        }
+        #stopBtn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .manual-section {
+            background: #f6ffed;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-left: 5px solid #52c41a;
+        }
+        .manual-section h3 {
+            color: #389e0d;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        #manualCode {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #d9f7be;
+            border-radius: 8px;
+            font-size: 18px;
+            text-align: center;
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+        }
+        #manualCode:focus {
+            outline: none;
+            border-color: #52c41a;
+        }
+        #manualBtn {
+            background: linear-gradient(90deg, #52c41a, #73d13d);
+            color: white;
+            width: 100%;
+        }
+        #manualBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(82, 196, 26, 0.4);
+        }
+        .result-area {
+            min-height: 120px;
+        }
+        .result-box {
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            animation: fadeIn 0.5s;
+            text-align: center;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .success {
+            background: linear-gradient(135deg, #f6ffed, #d9f7be);
+            border: 2px solid #b7eb8f;
+            color: #389e0d;
+        }
+        .error {
+            background: linear-gradient(135deg, #fff2f0, #ffccc7);
+            border: 2px solid #ffa39e;
+            color: #cf1322;
+        }
+        .info {
+            background: linear-gradient(135deg, #e6f7ff, #bae7ff);
+            border: 2px solid #91d5ff;
+            color: #096dd9;
+        }
+        .code-display {
+            font-family: 'Menlo', monospace;
+            font-size: 22px;
+            font-weight: bold;
+            letter-spacing: 3px;
+            color: #1890ff;
+            margin: 15px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 2px dashed #1890ff;
+        }
+        .employee-info {
+            font-size: 18px;
+            margin: 10px 0;
+            color: #666;
+        }
+        .instructions {
+            background: #fff7e6;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 25px;
+            border-left: 5px solid #faad14;
+        }
+        .instructions h3 {
+            color: #d48806;
+            margin-bottom: 10px;
+        }
+        .instructions ul {
+            padding-left: 20px;
+            color: #666;
+            line-height: 1.8;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 扫码核销工具</h1>
+            <p class="subtitle">专业二维码识别 · 实时核销</p>
+        </div>
+        
+        <div class="scanner-area">
+            <video id="video" playsinline></video>
+            <canvas id="canvas"></canvas>
+            <div class="scan-overlay">
+                <div class="scan-frame">
+                    <div class="scan-line"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="startBtn">🎥 开启摄像头扫码</button>
+            <button id="stopBtn" disabled>⏸️ 暂停扫码</button>
+        </div>
+        
+        <div class="manual-section">
+            <h3>或手动输入核销码</h3>
+            <input type="text" 
+                   id="manualCode" 
+                   placeholder="在此粘贴12位核销码"
+                   maxlength="12"
+                   autocomplete="off">
+            <button id="manualBtn">✅ 手动核销</button>
+        </div>
+        
+        <div id="result" class="result-area">
+            <div class="result-box info">
+                <p>点击"开启摄像头扫码"开始使用</p>
+                <p style="font-size: 14px; margin-top: 10px; color: #666;">
+                    支持识别纯12位核销码格式的二维码
+                </p>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>💡 使用说明</h3>
+            <ul>
+                <li><strong>扫码核销</strong>：点击开启摄像头，对准员工二维码</li>
+                <li><strong>手动核销</strong>：员工用微信扫二维码后，将12位码粘贴到上方输入框</li>
+                <li><strong>识别要求</strong>：二维码内容必须是纯12位核销码（如：abc123def456）</li>
+                <li>确保环境光线充足，二维码清晰可见</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 核心扫码逻辑 ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const manualCodeInput = document.getElementById('manualCode');
+            const manualBtn = document.getElementById('manualBtn');
+            const resultDiv = document.getElementById('result');
+            
+            let mediaStream = null;
+            let isScanning = false;
+            let animationFrameId = null;
+            
+            // 1. 开启摄像头并开始扫码
+            async function startScanner() {
+                if (isScanning) return;
+                
+                updateResult('正在启动摄像头...', 'info');
+                startBtn.disabled = true;
+                startBtn.textContent = '启动中...';
+                
+                try {
+                    // 请求摄像头权限
+                    mediaStream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'environment',  // 优先使用后置摄像头
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    });
+                    
+                    video.srcObject = mediaStream;
+                    video.play();
+                    
+                    // 等待视频准备就绪
+                    await new Promise(resolve => {
+                        video.onloadedmetadata = () => {
+                            // 设置canvas尺寸与视频一致
+                            canvas.width = video.videoWidth;
+                            canvas.height = video.videoHeight;
+                            resolve();
+                        };
+                    });
+                    
+                    isScanning = true;
+                    startBtn.style.display = 'none';
+                    stopBtn.disabled = false;
+                    
+                    updateResult('摄像头已开启！请将扫描框对准二维码', 'info');
+                    
+                    // 开始扫码循环
+                    scanLoop();
+                    
+                } catch (error) {
+                    console.error('摄像头启动失败:', error);
+                    updateResult(`摄像头错误: ${error.message}`, 'error');
+                    resetScanner();
+                }
+            }
+            
+            // 2. 扫码循环 - 核心识别逻辑
+            function scanLoop() {
+                if (!isScanning) return;
+                
+                try {
+                    // 从视频中捕获当前帧到canvas
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    // 从canvas获取图像数据
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    
+                    // 使用jsQR库识别二维码
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: 'dontInvert',
+                    });
+                    
+                    // 如果识别到二维码
+                    if (code) {
+                        console.log('识别到二维码:', code.data);
+                        
+                        // 暂停扫码
+                        stopScanner();
+                        
+                        // 处理识别到的内容
+                        processScannedCode(code.data);
+                        
+                        return; // 退出当前循环
+                    }
+                } catch (error) {
+                    console.log('扫描处理中:', error.message);
+                }
+                
+                // 继续下一帧扫描
+                if (isScanning) {
+                    animationFrameId = requestAnimationFrame(scanLoop);
+                }
+            }
+            
+            // 3. 处理识别到的二维码内容
+            function processScannedCode(scannedData) {
+                let couponId = '';
+                
+                // 兼容两种格式：
+                // 1. 纯12位核销码：abc123def456
+                // 2. URL格式：http://localhost:3000/verify.html?code=abc123def456
+                
+                // 尝试从URL中提取code参数
+                const urlMatch = scannedData.match(/code=([a-zA-Z0-9]{12})/);
+                if (urlMatch) {
+                    couponId = urlMatch[1];
+                } 
+                // 检查是否为纯12位字母数字
+                else if (scannedData.length === 12 && /^[a-zA-Z0-9]+$/.test(scannedData)) {
+                    couponId = scannedData;
+                } 
+                // 其他格式，尝试直接使用
+                else {
+                    couponId = scannedData.substring(0, 12); // 取前12位
+                }
+                
+                console.log('提取的核销码:', couponId);
+                
+                // 验证格式
+                if (couponId.length === 12 && /^[a-zA-Z0-9]+$/.test(couponId)) {
+                    // 填入手动输入框
+                    manualCodeInput.value = couponId;
+                    // 自动核销
+                    verifyCoupon(couponId);
+                } else {
+                    updateResult(`无法识别的格式: ${scannedData}`, 'error');
+                    // 3秒后重新开始扫码
+                    setTimeout(() => {
+                        if (!isScanning) {
+                            startScanner();
+                        }
+                    }, 3000);
+                }
+            }
+            
+            // 4. 核销函数
+            async function verifyCoupon(couponId) {
+                updateResult(`正在核销: ${couponId}...`, 'info');
+                
+                try {
+                    const response = await fetch('/api/verify-coupon', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ couponId: couponId })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // 核销成功
+                        const successHTML = `
+                            <div class="result-box success">
+                                <div style="font-size: 24px; margin-bottom: 15px;">✅ 核销成功！</div>
+                                <div class="employee-info">员工：${result.employeeName}</div>
+                                <div class="code-display">${couponId}</div>
+                                <p style="margin-top: 15px; color: #666;">
+                                    该礼盒券已核销完成
+                                </p>
+                            </div>
+                        `;
+                        resultDiv.innerHTML = successHTML;
+                        
+                        // 3秒后准备下一次扫码
+                        setTimeout(() => {
+                            updateResult('准备下一次扫码...', 'info');
+                            startScanner();
+                        }, 3000);
+                        
+                    } else {
+                        // 核销失败
+                        updateResult(`❌ 核销失败: ${result.message}`, 'error');
+                        
+                        // 5秒后重新开始扫码
+                        setTimeout(() => {
+                            if (!isScanning) {
+                                startScanner();
+                            }
+                        }, 5000);
+                    }
+                } catch (error) {
+                    updateResult(`网络错误: ${error.message}`, 'error');
+                }
+            }
+            
+            // 5. 停止扫码
+            function stopScanner() {
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                }
+                
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                    mediaStream = null;
+                }
+                
+                isScanning = false;
+                video.srcObject = null;
+                
+                // 更新UI
+                startBtn.style.display = 'block';
+                startBtn.disabled = false;
+                startBtn.textContent = '🎥 重新开始扫码';
+                stopBtn.disabled = true;
+            }
+            
+            // 6. 重置扫码器
+            function resetScanner() {
+                startBtn.disabled = false;
+                startBtn.textContent = '🎥 开启摄像头扫码';
+                stopBtn.disabled = true;
+                isScanning = false;
+            }
+            
+            // 7. 更新结果显示
+            function updateResult(message, type = 'info') {
+                const typeClass = {
+                    'info': 'info',
+                    'success': 'success', 
+                    'error': 'error'
+                }[type] || 'info';
+                
+                resultDiv.innerHTML = `
+                    <div class="result-box ${typeClass}">
+                        ${message}
+                    </div>
+                `;
+            }
+            
+            // 8. 手动核销
+            async function manualVerify() {
+                const couponCode = manualCodeInput.value.trim();
+                
+                if (!couponCode) {
+                    updateResult('请输入核销码', 'error');
+                    manualCodeInput.focus();
+                    return;
+                }
+                
+                if (couponCode.length !== 12) {
+                    updateResult('核销码必须是12位字符', 'error');
+                    manualCodeInput.focus();
+                    return;
+                }
+                
+                // 如果正在扫码，先暂停
+                const wasScanning = isScanning;
+                if (wasScanning) {
+                    stopScanner();
+                }
+                
+                await verifyCoupon(couponCode);
+            }
+            
+            // 9. 绑定事件
+            startBtn.addEventListener('click', startScanner);
+            stopBtn.addEventListener('click', stopScanner);
+            manualBtn.addEventListener('click', manualVerify);
+            
+            // 按回车键触发手动核销
+            manualCodeInput.addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    manualVerify();
+                }
+            });
+            
+            // 初始状态
+            console.log('扫码工具初始化完成');
+            updateResult('点击上方按钮开始扫码核销', 'info');
+            
+        });
+    </script>
+</body>
+</html>

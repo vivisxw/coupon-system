@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>核销入口</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 50px; }
+        .card {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        a.button {
+            display: block;
+            margin: 20px 0;
+            padding: 15px;
+            background: #1890ff;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 18px;
+        }
+        a.button:hover { background: #40a9ff; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>礼盒券核销</h2>
+        <p><strong>推荐使用扫码工具</strong>，高效准确。</p>
+        <a href="scan.html" class="button">🚀 打开专业扫码核销工具</a>
+        <p><strong>或</strong> 继续使用手动核销：</p>
+        <input type="text" id="code" placeholder="输入12位核销码" style="padding:10px; width:80%;">
+        <button onclick="verify()" style="padding:10px 20px; margin-top:10px;">手动核销</button>
+        <div id="result" style="margin-top:20px;"></div>
+    </div>
+    <script>
+        // 保留原有的手动核销功能
+        async function verify() {
+            const code = document.getElementById('code').value.trim();
+            if(code.length !== 12){ alert('核销码应为12位'); return; }
+            const res = await fetch('/api/verify-coupon', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({couponId:code})
+            });
+            const data = await res.json();
+            const r = document.getElementById('result');
+            r.innerHTML = data.success ? 
+                `<div style="color:green;">✓ 核销成功！员工：${data.employeeName}</div>` :
+                `<div style="color:red;">✗ ${data.message}</div>`;
+        }
+    </script>
+</body>
+</html>

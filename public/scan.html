@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>核销员工具 - 扫码核销</title>
+    <!-- 引入专业的二维码扫描库 -->
+    <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, system-ui, sans-serif;
+            background: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+            padding: 25px;
+        }
+        h1 { color: #1890ff; margin-bottom: 20px; text-align: center; }
+        h2 { color: #666; font-size: 16px; margin-bottom: 25px; text-align: center; font-weight: normal;}
+        #scanner-container {
+            width: 100%;
+            max-width: 300px;
+            height: 300px;
+            margin: 0 auto 25px;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        #scanner-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .scanner-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            box-shadow: inset 0 0 0 2000px rgba(0, 0, 0, 0.3);
+            /* 创建一个中间的透明扫描框 */
+            clip-path: polygon(0% 0%, 0% 100%, 25% 100%, 25% 25%, 75% 25%, 75% 75%, 25% 75%, 25% 100%, 100% 100%, 100% 0%);
+        }
+        #result-area {
+            margin-top: 25px;
+            text-align: center;
+            min-height: 60px;
+        }
+        .status-box {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        .success {
+            background-color: #f6ffed;
+            border: 1px solid #b7eb8f;
+            color: #52c41a;
+        }
+        .error {
+            background-color: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #ff4d4f;
+        }
+        .info {
+            background-color: #e6f7ff;
+            border: 1px solid #91d5ff;
+            color: #1890ff;
+        }
+        #manual-input {
+            width: 100%;
+            padding: 12px;
+            margin-top: 15px;
+            border: 1px solid #d9d9d9;
+            border-radius: 6px;
+            font-size: 16px;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            margin-top: 15px;
+            background: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover { background: #40a9ff; }
+        button:disabled {
+            background: #d9d9d9;
+            cursor: not-allowed;
+        }
+        .code-display {
+            font-family: monospace;
+            background: #fafafa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎫 礼盒券核销工具</h1>
+        <h2>请将摄像头对准员工手机上的二维码</h2>
+        
+        <div id="scanner-container">
+            <video id="scanner-video"></video>
+            <div class="scanner-overlay"></div>
+        </div>
+        
+        <div id="result-area">
+            <div id="status" class="status-box info">等待扫码...</div>
+        </div>
+        
+        <p style="color: #999; text-align: center; margin: 20px 0;">- 或 -</p>
+        <input type="text" 
+               id="manual-input" 
+               placeholder="也可在此手动粘贴12位核销码" 
+               maxlength="12">
+        <button id="manual-verify-btn">手动核销</button>
+        <button id="restart-btn" style="background: #666; display:none;">重新开始扫码</button>
+    </div>
+
+    <script>
+        // 页面核心逻辑
+        document.addEventListener('DOMContentLoaded', function() {
+            const videoElement = document.getElementById('scanner-video');
+            const statusElement = document.getElementById('status');
+            const manualInput = document.getElementById('manual-input');
+            const manualVerifyBtn = document.getElementById('manual-verify-btn');
+            const restartBtn = document.getElementById('restart-btn');
+            let codeReader = null;
+            let isScanning = false;
+
+            // 1. 初始化扫码器
+            function initScanner() {
+                const hint = new ZXing.BrowserQRCodeReader.ScannerHints();
+                codeReader = new ZXing.BrowserQRCodeReader.BrowserQRCodeReader(hint);
+                console.log('ZXing扫码器初始化成功');
+            }
+
+            // 2. 开始扫码
+            async function startScanning() {
+                if (isScanning) return;
+                
+                statusElement.textContent = '正在启动摄像头...';
+                statusElement.className = 'status-box info';
+                
+                try {
+                    // 请求摄像头权限并开始解码
+                    await codeReader.decodeFromVideoDevice(
+                        null, // 默认摄像头
+                        videoElement,
+                        async (result, error) => {
+                            if (result) {
+                                // 扫码成功！
+                                const couponCode = result.text;
+                                // 从二维码链接中提取核销码 (格式: ...?code=xxx)
+                                const codeMatch = couponCode.match(/code=([a-zA-Z0-9]{12})/);
+                                const couponId = codeMatch ? codeMatch[1] : couponCode;
+                                
+                                console.log('扫描到二维码:', couponCode, '提取的核销码:', couponId);
+                                stopScanning();
+                                await verifyCoupon(couponId);
+                            }
+                            if (error && !error.message.includes('NotFoundException')) {
+                                console.error('扫描错误:', error);
+                            }
+                        }
+                    );
+                    isScanning = true;
+                    statusElement.textContent = '请对准二维码...';
+                    restartBtn.style.display = 'none';
+                } catch (error) {
+                    console.error('启动摄像头失败:', error);
+                    statusElement.textContent = '摄像头访问失败: ' + error.message;
+                    statusElement.className = 'status-box error';
+                    restartBtn.style.display = 'block';
+                }
+            }
+
+            // 3. 停止扫码
+            function stopScanning() {
+                if (codeReader && isScanning) {
+                    codeReader.reset();
+                    isScanning = false;
+                    console.log('扫码已停止');
+                }
+            }
+
+            // 4. 核销函数（与你的后端API通信）
+            async function verifyCoupon(couponId) {
+                statusElement.textContent = `正在核销: ${couponId}...`;
+                statusElement.className = 'status-box info';
+                manualInput.value = couponId; // 将码填入输入框
+                
+                try {
+                    const response = await fetch('/api/verify-coupon', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ couponId: couponId })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        statusElement.innerHTML = `✅ <strong>核销成功！</strong><br>员工：${result.employeeName}`;
+                        statusElement.className = 'status-box success';
+                        // 成功后可选择自动重启扫码
+                        setTimeout(() => {
+                            statusElement.textContent = '准备下一次扫码...';
+                            statusElement.className = 'status-box info';
+                            startScanning();
+                        }, 2000);
+                    } else {
+                        statusElement.textContent = `❌ 核销失败: ${result.message}`;
+                        statusElement.className = 'status-box error';
+                        restartBtn.style.display = 'block';
+                    }
+                } catch (error) {
+                    statusElement.textContent = '❌ 网络请求失败，请检查连接';
+                    statusElement.className = 'status-box error';
+                    restartBtn.style.display = 'block';
+                }
+            }
+
+            // 5. 绑定按钮事件
+            manualVerifyBtn.addEventListener('click', async () => {
+                const couponId = manualInput.value.trim();
+                if (couponId.length === 12) {
+                    stopScanning();
+                    await verifyCoupon(couponId);
+                } else {
+                    alert('请输入12位有效的核销码');
+                }
+            });
+
+            restartBtn.addEventListener('click', () => {
+                manualInput.value = '';
+                statusElement.textContent = '重新启动...';
+                statusElement.className = 'status-box info';
+                startScanning();
+            });
+
+            // 6. 页面初始化入口
+            window.initScanTool = async function() {
+                try {
+                    initScanner();
+                    await startScanning();
+                } catch (error) {
+                    statusElement.textContent = '工具初始化失败，请刷新页面';
+                    statusElement.className = 'status-box error';
+                }
+            };
+
+            // 启动！
+            window.initScanTool();
+        });
+    </script>
+</body>
+</html>
